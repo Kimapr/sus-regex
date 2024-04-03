@@ -1,0 +1,9 @@
+#!/bin/sh
+#~/stuff/zig/zig cc -static -nostdlib -nodefaultlibs meow.s -o amogus || exit
+#gcc -static -nostdlib -nodefaultlibs meow.s -o amogus.o || exit
+gcc -c meow.s -o amogus.o || exit
+~/stuff/zig/zig cc -static -nostdlib -nodefaultlibs amogus.o -o amogus || exit
+#clang -static -nostdlib -nodefaultlibs meow.s -o amogus || exit
+objdump -d amogus
+strip -K entry amogus
+du -b amogus
