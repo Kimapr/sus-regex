@@ -1,9 +1,10 @@
 #!/bin/sh
-#~/stuff/zig/zig cc -static -nostdlib -nodefaultlibs meow.s -o amogus || exit
-#gcc -static -nostdlib -nodefaultlibs meow.s -o amogus.o || exit
-gcc -c meow.s -o amogus.o || exit
-~/stuff/zig/zig cc -static -nostdlib -nodefaultlibs amogus.o -o amogus || exit
-#clang -static -nostdlib -nodefaultlibs meow.s -o amogus || exit
-objdump -d amogus
-strip -K entry amogus
-du -b amogus
+mkdir -p target
+gcc -c meow.s -o target/amogus.o || exit
+gnu() { shift 1 && gcc "$@"; }
+"$(command -v ~/stuff/zig/zig || echo gnu)" \
+cc -static -nostdlib -nodefaultlibs target/amogus.o -o target/amogus || exit
+objdump -d target/amogus
+strip --strip-section-headers -K entry target/amogus
+du -b target/amogus
+

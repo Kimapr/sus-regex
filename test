@@ -1,2 +1,2 @@
 #!/bin/sh
-./build && gdb -iex 'set confirm no' -ex 'run' amogus
+./build && gdb -iex 'set confirm no' -ex 'run' target/amogus
