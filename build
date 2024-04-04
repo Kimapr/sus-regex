@@ -3,8 +3,13 @@ mkdir -p target
 gcc -c meow.s -o target/amogus.o || exit
 gnu() { shift 1 && gcc "$@"; }
 "$(command -v ~/stuff/zig/zig || echo gnu)" \
-cc -static -nostdlib -nodefaultlibs target/amogus.o -o target/amogus || exit
+cc -O3 -shared -static -nostdlib -nodefaultlibs target/amogus.o -o target/amogus || exit
 objdump -d target/amogus
-strip --strip-section-headers -K entry target/amogus
+strip -K entry target/amogus
+objdump -t target/amogus
 du -b target/amogus
+rm -rf target/cg/
+mkdir -p target/cg
+cp target/amogus target/cg/
+cp amogus.h target/cg/
 

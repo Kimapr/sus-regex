@@ -24,7 +24,7 @@ usage:
 	mov $help0l,%rsi
 	call write
 
-	mov [argv],%rdi
+	mov argv(%rip),%rdi
 	push %rdi
 	call strlen
 	pop %rdi

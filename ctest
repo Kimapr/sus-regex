@@ -1,0 +1,7 @@
+#!/bin/sh
+./build || exit
+export C_INCLUDE_PATH="$PWD:$C_INCLUDE_PATH"
+export LD_LIBRARY_PATH="$PWD/target:$LD_LIBRARY_PATH"
+export LIBRARY_PATH="$PWD/target:$LIBRARY_PATH"
+gcc test.c -o target/cmogus -L"$LIBRARY_PATH" -l:amogus || exit
+target/cmogus
