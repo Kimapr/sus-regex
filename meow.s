@@ -22,7 +22,6 @@ endif:
 usage:
 	lea help0(%rip),%rdi
 	mov $help0l,%rsi
-
 	call write
 
 	mov [argv],%rdi
@@ -41,14 +40,11 @@ usage:
 # rdi - buf
 # -> rax - len
 strlen:
+	mov %rdi,%rsi
+	xor %rax,%rax
+	repne scasb
+	sub %rsi,%rdi
 	mov %rdi,%rax
-	strlen_loop:
-		movb 0(%rax),%sil
-		inc %rax
-		test %sil,%sil
-		jnz strlen_loop
-	sub $1,%rax
-	sub %rdi,%rax
 	ret
 
 # rdi - buf
