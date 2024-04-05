@@ -1,15 +1,17 @@
 #!/bin/sh
 mkdir -p target
+./charjmpt.lua > target/charjmpt.s
 gcc -c meow.s -o target/amogus.o || exit
-gnu() { shift 1 && gcc "$@"; }
+gnu() { shift 1 && clang "$@"; }
 "$(command -v ~/stuff/zig/zig || echo gnu)" \
 cc -O3 -shared -static -nostdlib -nodefaultlibs target/amogus.o -o target/amogus || exit
 objdump -d target/amogus
-strip -K entry target/amogus
-objdump -t target/amogus
-du -b target/amogus
+cp target/amogus target/amogstrip
+strip -K entry target/amogstrip
+objdump -t target/amogstrip
+du -b target/amogstrip
 rm -rf target/cg/
 mkdir -p target/cg
-cp target/amogus target/cg/
+cp target/amogstrip target/cg/amogus
 cp amogus.h target/cg/
 

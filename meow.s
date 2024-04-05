@@ -3,7 +3,6 @@
 .globl entry
 .type entry, @function
 _start:
-	#mov -4(%ebp),%eax
 	pop %rax
 	mov %rax,argc(%rip)
 	mov %rax,%rdi
@@ -72,19 +71,59 @@ _exit:
 	syscall
 	ret
 
+.include "target/charjmpt.s"
+
+# rdi - where
+# rsi - char
+#parse_...:
+
+parse_self:
+	xor %rax,%rax
+	ret
+
+parse_exit:
+	mov $1,%rax
+	ret
+
+
+# rdi - regex
+# rsi - callback
+# rdx - cb data
 entry:
-	push %r12
-	sub $8,%r12
-	mov %rsp,%r12
+	push %rbp
+	mov %rsp,%rbp
+	sub $48,%rsp
+	mov %rsi,-8(%rbp)
+	mov %rdx,-16(%rbp)
+	mov %rdi,-24(%rbp)
 	entry_parse_begin:
-		test %rdi,%rdi
+		movzbl (%rdi),%ecx
+		lea charjmpt(%rip),%r11
+		movzx %cl,%r10
+		shl $2,%r10
+		add %r10,%r11
+		movsxd (%r11),%r11
+		charjmpt_prej:
+		lea charjmpt_prej(%rip),%r10
+		add %r10,%r11
+		mov %rdi,-32(%rbp)
+		call *%r11
+		test %rax,%rax
 		jnz entry_parse_end
-		mov %rdi,%rcx
+		mov -32(%rbp),%rdi
 		inc %rdi
+		jmp entry_parse_begin
 	entry_parse_end:
-	mov %r12,%rsp
-	add $8,%r12
-	pop %r12
+	mov %rdi,%rsi
+	mov -24(%rbp),%rdi
+	sub %rdi,%rsi
+	inc %rsi
+	mov -16(%rbp),%rdx
+	mov -8(%rbp),%r9
+	entry_pre_call:
+	call *%r9
+	mov %rbp,%rsp
+	pop %rbp
 	ret
 
 .bss
