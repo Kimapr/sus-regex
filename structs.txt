@@ -1,0 +1,40 @@
+/*
+struct group {
+	alts_tail: group_alt ptrdiff32
+	alts_head: group_alt ptrdiff32
+	up: group ptrdiff32
+}
+
+struct group_alt {
+	text_tail: text_node ptrdiff32
+	text_head: text_node ptrdiff32
+	next: group_alt ptrdiff32
+}
+
+struct text_node {
+	type: i32 enum {
+		// null = 0
+		murder = 1 // union: void[0]
+		wiped = 2 // union: void[0]
+		chars = 3 // union: text_chars
+		group = 4 // union: group
+	}
+	next: text_node ptrdiff32
+	data: union ...
+}
+
+struct text_chars {
+	text: char[]rev ptrdiff32
+	len: u32
+}
+
+struct parse_state {
+	current_gr: group ptr64
+	mother_gr: group ptr64
+	regchar: char ptr64
+	callback: fn ptr64
+	cbdata: void ptr64
+	...?
+}
+*/
+

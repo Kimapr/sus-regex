@@ -2,9 +2,17 @@
 mkdir -p target
 ./charjmpt.lua > target/charjmpt.s
 gcc -c meow.s -o target/amogus.o || exit
-gnu() { shift 1 && clang "$@"; }
-"$(command -v ~/stuff/zig/zig || echo gnu)" \
-cc -O3 -shared -static -nostdlib -nodefaultlibs target/amogus.o -o target/amogus || exit
+if command -v ~/stuff/zig/zig >/dev/null; then
+	~/stuff/zig/zig cc -shared -nostdlib target/amogus.o -o target/amogus || exit
+elif command -v ld.lld >/dev/null; then
+	ld.lld -shared -nostdlib target/amogus.o -o target/amogus || exit
+else
+	gcc -shared -nostdlib target/amogus.o -o target/amogus || exit
+fi
+#gnu() { shift 1 && gcc "$@"; }
+#"$(command -v ~/stuff/zig/zig || echo gnu)" \
+#cc -shared -nostdlib target/amogus.o -o target/amogus || exit
+#ld.lld -shared -nostdlib target/amogus.o -o target/amogus || exit
 objdump -d target/amogus
 cp target/amogus target/amogstrip
 strip -K entry target/amogstrip
@@ -14,4 +22,5 @@ rm -rf target/cg/
 mkdir -p target/cg
 cp target/amogstrip target/cg/amogus
 cp amogus.h target/cg/
+cp amogus.png target/cg/
 
