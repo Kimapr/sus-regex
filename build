@@ -9,10 +9,6 @@ elif command -v ld.lld >/dev/null; then
 else
 	gcc -shared -nostdlib target/amogus.o -o target/amogus || exit
 fi
-#gnu() { shift 1 && gcc "$@"; }
-#"$(command -v ~/stuff/zig/zig || echo gnu)" \
-#cc -shared -nostdlib target/amogus.o -o target/amogus || exit
-#ld.lld -shared -nostdlib target/amogus.o -o target/amogus || exit
 objdump -d target/amogus
 cp target/amogus target/amogstrip
 strip -K entry target/amogstrip
