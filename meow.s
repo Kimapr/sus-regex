@@ -1,7 +1,7 @@
 .globl _start
 .type _start, @function
-.globl entry
-.type entry, @function
+
+.set bitesize, 0x1000
 
 _start:
 	pop %rax
@@ -10,13 +10,55 @@ _start:
 	pop %rax
 	mov %rax,argv(%rip)
 	cmp $1,%rdi
-	jg _start_endif
+	jle _start_endif
 	mov $1,%rdi
 	call usage
 	jmp _exit
 	_start_endif:
-	
+
+	mov $12,%rax # brk
 	mov $0,%rdi
+	syscall
+
+	mov %rax,%r13
+	xor %r12,%r12
+	rloop:
+	mov %r13,%rdi
+	add %r12,%rdi
+	push %rdi
+	add $bitesize,%rdi
+	mov $12,%rax
+	syscall
+	pop %rdi
+	cmp %rdi,%rax
+	jne skipdie
+	movq $0,0
+	skipdie:
+	mov $0,%rax
+	mov $0,%rdi
+	mov %r13,%rsi
+	add %r12,%rsi
+	mov $bitesize,%rdx
+	syscall
+	add %rax,%r12
+	test %rax,%rax
+	jnz rloop
+	inc %r12
+
+	pop %rax
+	mov %r13,%rdi
+	add %r12,%rdi
+	push %rdi
+	mov $12,%rax
+	syscall
+	pop %rdi
+	dec %rdi
+	movb $0,(%rdi)
+	mov %r13,%rdi
+	lea write(%rip),%rsi
+	call Lentry
+
+	mov %rax,%rdi
 	jmp _exit
 
 usage:
@@ -40,6 +82,8 @@ usage:
 // rdi - buf
 // -> rax - len
 strlen:
+	xor %ecx,%ecx
+	dec %rcx
 	mov %rdi,%rsi
 	xor %rax,%rax
 	repne scasb
@@ -47,6 +91,9 @@ strlen:
 	mov %rdi,%rax
 	dec %rax
 	ret
+
+sbrk:
+
 
 // rdi - buf
 // rsi - len
@@ -103,8 +150,11 @@ _exit:
 	pop %rdi
 .endm
 
-.macro eaptrdiff32 ptr=%rax, out=%rax, off=0, tmp=%r11
+.macro eaptrdiff32 ptr:req, out:req, off=0, tmp=%r11
 	eaptrdiff32.\@:
+	.if (\ptr == \tmp) || (\out == \tmp)
+	.error "broken tmp"
+	.endif
 	.if \ptr != \out
 	push \ptr
 	.endif
@@ -127,7 +177,7 @@ _exit:
 	eaptrdiff32o.\@:
 .endm
 
-.macro mkptrdiff32 to=%r11, to_low=%r11d, ptr=%rax, off=0
+.macro mkptrdiff32 to:req, to_low=%r11d, ptr:req, off=0
 	mkptrdiff32.\@:
 	push \to
 	.if \off
@@ -142,19 +192,93 @@ _exit:
 	pop \to
 .endm
 
+.globl gimme_debugger
+gimme_debugger:
+	mov %rdi,debugit(%rip)
+	ret
+
+.macro debugger_print arg=0, str="", pr_reg=%rsi
+	push %rax
+	push %rdx
+	mov \pr_reg,%rdx
+	mov debugit(%rip),%rax
+	test %rax,%rax
+	jz dbgpei\@
+	push %rdi
+	push %rsi
+	push %r8
+	push %r9
+	push %r10
+	push %r11
+	push %rcx
+	mov %rsp,%rcx
+	mov $\arg,%rdi
+	jmp printps\@
+	print\@:
+.altmacro
+	.ascii "\str"
+	.byte 0
+.noaltmacro
+	printps\@:
+	lea print\@(%rip),%rsi
+	mov 8(%rax),%rax
+	call *%rax
+	pop %rcx
+	pop %r11
+	pop %r10
+	pop %r9
+	pop %r8
+	pop %rsi
+	pop %rdi
+	dbgpei\@:
+	pop %rdx
+	pop %rax
+.endm
+
+.macro debugger_init
+	push %rax
+	mov debugit(%rip),%rax
+	test %rax,%rax
+	jz dbgpei\@
+	push %rdi
+	push %rsi
+	push %rdx
+	push %rcx
+	push %r8
+	push %r9
+	push %r10
+	push %r11
+	lea (-3*8-5*8)(%rbp),%rdi
+	mov (%rax),%rax
+	call *%rax
+	pop %r11
+	pop %r10
+	pop %r9
+	pop %r8
+	pop %rcx
+	pop %rdx
+	pop %rsi
+	pop %rdi
+	dbgpei\@:
+	pop %rax
+.endm
+
 // rdi - regex
 // rsi - callback
 // rdx - cb data
+Lentry:
 entry:
 	push %rbp
 	mov %rsp,%rbp
 	//    svregs   state   group   group_alt
 	//   (r12-r14)
 	sub $(3*8    + 5*8   + 3*4   + 3*4),%rsp
+	debugger_init
 	mov %r12,-8(%rbp)
 	mov %r13,-16(%rbp)
 	mov %r14,-24(%rbp)
 	mov %rsp,%r12
+	sub $65536,%r12
 	mov %rdi,(-3*8-5*8 + 2*8)(%rbp) # state.regchar
 	mov %rsi,(-3*8-5*8 + 3*8)(%rbp) # state.callback
 	mov %rdx,(-3*8-5*8 + 4*8)(%rbp) # state.cbdata
@@ -169,24 +293,9 @@ entry:
 	movl $0,(-3*8-5*8-3*4-3*4 + 0*4)(%rbp) # group_alt.text_tail
 	movl $0,(-3*8-5*8-3*4-3*4 + 1*4)(%rbp) # group_alt.text_head
 	movl $0,(-3*8-5*8-3*4-3*4 + 2*4)(%rbp) # group_alt.next
-	xchg %r12,%rsp
-	sub $512,%r12
 	entry_parse_begin:
 		mov (-3*8-5*8 + 2*8)(%rbp),%rsi
 		movzbq (%rsi),%rsi # char to sil
-
-		print "\t[[ char="
-		push %rdi
-		push %rsi
-		push %rax
-		mov (-3*8-5*8 + 2*8)(%rbp),%rdi
-		mov $1,%rsi
-		call write
-		pop %rax
-		pop %rsi
-		pop %rdi
-		print " ]]\n"
-
 		lea charjmpt(%rip),%r11
 		movzx %sil,%r10
 		shl $1,%r10
@@ -216,6 +325,7 @@ entry:
 	call traverse_ast
 	mov $1,%rax
 	entry_untraverse:
+	debugger_print 3, "ENDOF ATNR", %rsp
 	entry_parse_fail:
 	mov %r12,%rsp
 	mov -8(%rbp),%r12
@@ -230,7 +340,6 @@ entry:
 // rdx - len
 // rcx - option<&tnode>
 traverse_ast:
-	print "trav {\n"
 	test %rsi,%rsi
 	jz tast_bye
 	push %rsi
@@ -244,7 +353,6 @@ traverse_ast:
 	eaptrdiff32 %rsi,%rsi,(2*4)
 	jmp traverse_ast
 	tast_bye:
-	print "} trav\n"
 	ret
 
 // rdi - &state
@@ -252,39 +360,27 @@ traverse_ast:
 // rdx - len
 // rcx - option<&tnode>
 traverse_galt:
-	print "travgalt {\n"
 	test %rsi,%rsi
 	jnz tgand
 	tgfin:
 	test %rcx,%rcx
 	jz tgad
-	print "Stringing\n"
 	dec %rsp
 	movb $0,(%rsp)
 	tgalb:
 	movl (2*4+1*4)(%rcx),%r8d
 	eaptrdiff32 %rcx,%r9,(2*4)
+	sub %r8,%r9
+	inc %r9
 	tgscpb:
 	test %r8,%r8
 	jz tgscpe
-	print "char="
 	dec %rsp
 	mover:
+	#debugger_print 2, "galtchar" %r8
 	movb (%r9),%r10b
 	movb %r10b,(%rsp)
-
-	push %rdi
-	push %rsi
-	push %rax
-	mov %rsp,%rdi
-	mov $1,%rsi
-	call write
-	pop %rax
-	pop %rsi
-	pop %rdi
-	print "\n"
-
-	dec %r9
+	inc %r9
 	dec %r8
 	jmp tgscpb
 	tgscpe:
@@ -313,13 +409,10 @@ traverse_galt:
 	je tgt_group
 	movb $0,0
 	tgt_murder:
-	print "(murder)\n"
 	ret
 	tgt_wiped:
-	print "(wiped)\n"
 	jmp tgt_bye
 	tgt_chars:
-	print "(chars)\n"
 	movl (2*4+1*4)(%rsi),%r8d
 	add %r8,%rdx
 	movl $0,(2*4+2*4)(%rsi)
@@ -330,13 +423,11 @@ traverse_galt:
 	mov %rsi,%rcx
 	jmp tgt_bye
 	tgt_group:
-	print "(group)\n"
 	push %rsi
 	eaptrdiff32 %rsi,%rsi,(2*4+1*4)
 	call traverse_ast
 	pop %rsi
 	tgt_bye:
-	print "bye\n"
 	eaptrdiff32 %rsi,%rsi,4
 	jmp traverse_galt
 
@@ -368,18 +459,17 @@ parse_self:
 
 	push %rsi
 	movq (%rdi),%rax # rax - group
-	eaptrdiff32 %rax # rax - group_alt
+	eaptrdiff32 %rax,%rax # rax - group_alt
 	mov %rax,%rdi
 	movslq (%rax),%r9
 	test %r9,%r9
 	jz ps_alloc
-	eaptrdiff32 %rax # rax - text_node
+	eaptrdiff32 %rax,%rax # rax - text_node
 	movl (%rax),%r9d
 	cmp $3,%r9d
 	je ps_noalloc
 	ps_alloc:
 	mov $3,%rsi
-	print "(alloc)"
 	call push_tnode
 	dec %r12
 	mkptrdiff32 %r12,%r12d,%rax,(8+0) # text_chars.text
@@ -393,17 +483,6 @@ parse_self:
 	dec %r12
 	sub %r8,%r9
 	movb %sil,(%r9)
-
-	push %rdi
-	push %rsi
-	push %rax
-	mov %r12,%rdi
-	mov $1,%rsi
-	call write
-	pop %rax
-	pop %rsi
-	pop %rdi
-
 	incl (8+4)(%rax)
 	xor %rax,%rax
 	ret
@@ -423,7 +502,6 @@ parse_grbegin:
 	mkptrdiff32 %rsi,%esi,%rax,(2*4)
 	mov %rax,(%rdi)
 	sub $(3*4),%r12
-	and $-4,%r12
 	mkptrdiff32 %r12,%r12d,%rax
 	mkptrdiff32 %r12,%r12d,%rax,4
 	movl $0,(0*4)(%r12)
@@ -450,7 +528,6 @@ parse_nextalt:
 	mov (%rdi),%rdi # group
 	eaptrdiff32 %rdi,%rsi,(0*4) # group_alt orig
 	sub $(3*4),%r12
-	and $-4,%r12
 	movl $0,(0*4)(%r12)
 	movl $0,(1*4)(%r12)
 	movl $0,(2*4)(%r12)
@@ -467,8 +544,8 @@ parse_murder:
 	mov $3,%rax
 	ret
 	pm_succ:
-	mov (%rdi),%rdi
-	eaptrdiff32 %rdi
+	mov (%rdi),%rdi # group
+	eaptrdiff32 %rdi,%rdi # group_alt
 	mov $1,%rsi
 	call push_tnode
 	xor %rax,%rax
@@ -476,8 +553,8 @@ parse_murder:
 
 parse_erase:
 	mov (%rdi),%rsi # group
-	eaptrdiff32 %rsi # group_alt
-	movl (%rsi),%ecx
+	eaptrdiff32 %rsi,%rsi # group_alt
+	eaptrdiff32 %rsi,%rcx
 	test %rcx,%rcx
 	je pers_push
 	eaptrdiff32 %rsi,%rcx # text_node
@@ -489,13 +566,13 @@ parse_erase:
 	movl (2*4)(%rcx),%r8d
 	test %r8d,%r8d
 	jz pers_set
-	decl (2*4)(%rcx)
+	decl (2*4+4)(%rcx)
 	inc %r12
 	xor %rax,%rax
 	ret
 	pers_set:
 	movl $2,(%rcx)
-	mov %rcx,%r12
+	#mov %rcx,%r12
 	xor %rax,%rax
 	ret
 	pers_push:
@@ -516,26 +593,24 @@ append_tnode_recurse:
 	movl (%rsi),%r8d
 	cmp $4,%r8d
 	jne atnr_exit
-	lea (2*4+1*4)(%rsi),%rsi
+	lea (2*4)(%rsi),%rsi # rsi - group
+	eaptrdiff32 %rsi,%r10,4 # r10 - group_alt
 	atnr_nn:
-	movl (%rsi),%r11d
-	test %r11d,%r11d
-	jz atnr_exit
-	eaptrdiff32 %rsi
-	push %rsi
-	movl (%rsi),%r11d
-	test %r11d,%r11d
+	eaptrdiff32 %r10,%r11,0,%r9 # r11 - tnode
+	push %r10
+	test %r11,%r11
 	jz atnr_rej
-	eaptrdiff32 %rsi
+	mov %r11,%rsi
 	call append_tnode_recurse
 	jmp atrnr_norej
 	atnr_rej:
-	mkptrdiff32 %rdi,%edi,%rsi
-	mkptrdiff32 %rdi,%edi,%rsi,4
+	mkptrdiff32 %rdi,%edi,%r10
+	mkptrdiff32 %rdi,%edi,%r10,4
 	atrnr_norej:
-	pop %rsi
-	lea (2*4)(%rsi),%rsi
-	jmp atnr_nn
+	pop %r10
+	eaptrdiff32 %r10,%r10,8
+	test %r10,%r10
+	jnz atnr_nn
 	atnr_exit:
 	ret
 
@@ -543,7 +618,7 @@ append_tnode_recurse:
 // rsi - type
 // -> rax - text_node ptr
 push_tnode:
-	movslq (%rdi),%rcx
+	eaptrdiff32 %rdi,%rcx
 	sub $(5*4),%r12
 	and $-4,%r12
 	movl %esi,0(%r12)
@@ -552,7 +627,6 @@ push_tnode:
 	mkptrdiff32 %rax,%eax,%rdi
 	test %rcx,%rcx
 	jz ptn_ptout
-	add %rdi,%rcx
 	push %rax
 	push %rdi
 	mov %rax,%rdi
@@ -570,8 +644,13 @@ push_tnode:
 	ptn_jout:
 	ret
 
+.globl entry
+.type entry, @function
+
 .bss
 argc:
 	.zero 8
 argv:
+	.zero 8
+debugit:
 	.zero 8
