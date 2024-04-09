@@ -1,5 +1,5 @@
-#!/bin/sh
-./build || exit
+#!/bin/bash
+{ ./build || exit; } 2>&1>/dev/null
 export C_INCLUDE_PATH="$PWD:$C_INCLUDE_PATH"
 export LD_LIBRARY_PATH="$PWD/target:$LD_LIBRARY_PATH"
 export LIBRARY_PATH="$PWD/target:$LIBRARY_PATH"
@@ -8,9 +8,9 @@ if [ -z "$NODEBUG" ];
 then
 	gdb -q \
 		-iex 'set confirm no' \
-		-ex 'layout asm' \
 		-ex 'start' \
 			target/cmogus
+		#-ex 'layout asm' \
 else
 	target/cmogus
 fi

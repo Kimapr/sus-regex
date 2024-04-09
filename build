@@ -1,7 +1,7 @@
 #!/bin/sh
 mkdir -p target
 ./charjmpt.lua > target/charjmpt.s
-gcc -c meow.s -o target/amogus.o || exit
+gcc -O2 -Os -c meow.s -o target/amogus.o || exit
 if command -v ~/stuff/zig/zig >/dev/null; then
 	~/stuff/zig/zig cc -shared -nostdlib target/amogus.o -o target/amogus || exit
 elif command -v ld.lld >/dev/null; then

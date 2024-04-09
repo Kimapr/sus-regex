@@ -26,6 +26,7 @@ struct text_node {
 struct text_chars {
 	text: char[]rev ptrdiff32
 	len: u32
+	prevtmp: text_chars ptrdiff32
 }
 
 struct parse_state {
@@ -35,6 +36,13 @@ struct parse_state {
 	callback: fn ptr64
 	cbdata: void ptr64
 	...?
+}
+
+enum err {
+	OK = 0
+	NO_MATCH = 1
+	BAD_GRCLOSE = 2
+	BAD_MURDER = 3
 }
 */
 

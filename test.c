@@ -13,7 +13,11 @@ void callback(char* str, int size, void* data) {
 
 int main() {
 	char* match;
-	if(!entry("me\\|\\|ow.*|m(r(r(p..*)))",callback,&match))
+	int err;
+//	if((err=entry("me\\|\\|ow.(nya|sin|cos)XX,[]*(||)..*|m(r(r(p..*)))",callback,&match))) {
+	if((err=entry("meow()*ww|mrrp",callback,&match))) {
+		printf("error: %i\n",err);
 		return 1;
+	}
 	printf("%s",match);
 }
